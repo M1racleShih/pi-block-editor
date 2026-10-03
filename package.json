@@ -10,17 +10,34 @@
   },
   "homepage": "https://github.com/M1racleShih/pi-block-editor#readme",
   "bugs": "https://github.com/M1racleShih/pi-block-editor/issues",
-  "engines": { "node": ">=22.19.0" },
-  "keywords": ["pi-package", "pi-extension", "editor"],
-  "pi": { "extensions": ["./index.ts"] },
-  "files": ["index.ts", "src/", "README.md", "examples/", "docs/", "LICENSE"],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "editor"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "files": [
+    "index.ts",
+    "src/",
+    "README.md",
+    "examples/",
+    "docs/",
+    "LICENSE"
+  ],
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.85.1",
-    "@earendil-works/pi-tui": "0.85.1",
+    "@earendil-works/pi-coding-agent": "^1.0.0",
+    "@earendil-works/pi-tui": "^1.0.0",
     "@types/node": "^24.0.0",
     "typescript": "^5.9.0"
   },

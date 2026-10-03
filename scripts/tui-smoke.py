@@ -40,8 +40,16 @@ def command(text):
     tmux('send-keys', '-t', 'qa', 'Enter')
     time.sleep(.65)
 
-def block(text, rgb='52;53;65'):
-    assert '48;2;' + rgb in text, repr(text)
+dark_bg = None
+
+def block(text):
+    # The block paints the theme's userMessageBg. Record it from the first
+    # capture so the smoke survives Pi palette changes between versions.
+    global dark_bg
+    colors = set(re.findall(r'48;2;(\d+;\d+;\d+)', text))
+    assert colors, repr(text)
+    dark_bg = dark_bg or colors
+    assert colors & dark_bg, repr(text)
 
 with tempfile.TemporaryDirectory(prefix='pi-block-editor-smoke-') as temp:
     config = Path(temp)
@@ -85,7 +93,8 @@ with tempfile.TemporaryDirectory(prefix='pi-block-editor-smoke-') as temp:
         command('/reload'); block(capture('09-reload-on'))
         command('/qa-block-theme light')
         light = capture('10-light')
-        assert '48;2;' in light and '48;2;52;53;65' not in light
+        light_colors = set(re.findall(r'48;2;(\d+;\d+;\d+)', light))
+        assert light_colors and not (light_colors & dark_bg), light
         command('/qa-block-theme dark')
         command('/new'); block(capture('11-new'))
         command('/qa-block-foreign')

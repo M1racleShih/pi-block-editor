@@ -2,10 +2,11 @@ import { readFileSync } from "node:fs";
 
 export interface Config {
   enabled: boolean;
+  welcome: boolean;
   paddingX: number;
   background: "theme" | string | number;
 }
-export const defaults: Config = { enabled: true, paddingX: 1, background: "theme" };
+export const defaults: Config = { enabled: true, welcome: true, paddingX: 1, background: "theme" };
 
 export function parseConfig(value: unknown): Config {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("配置必须是 JSON 对象");
@@ -15,6 +16,7 @@ export function parseConfig(value: unknown): Config {
   }
   const config = { ...defaults, ...data } as Config;
   if (typeof config.enabled !== "boolean") throw new Error("enabled 必须是布尔值");
+  if (typeof config.welcome !== "boolean") throw new Error("welcome 必须是布尔值");
   if (!Number.isInteger(config.paddingX) || config.paddingX < 1 || config.paddingX > 8) {
     throw new Error("paddingX 必须是 1–8 的整数");
   }

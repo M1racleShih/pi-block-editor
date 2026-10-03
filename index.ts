@@ -1,12 +1,14 @@
 import { join } from "node:path";
 import { CustomEditor, getAgentDir, type ExtensionAPI, type ExtensionContext, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { BlockEditor } from "./src/block-editor.ts";
+import { createWelcome } from "./src/welcome.ts";
 import { defaults, loadConfig, type Config } from "./src/config.ts";
 
 const STATE = "pi-block-editor:enabled";
 type Factory = NonNullable<ReturnType<ExtensionUIContext["getEditorComponent"]>>;
 
 export default function blockEditor(pi: ExtensionAPI): void {
+  const welcome = createWelcome(pi);
   let config: Config = { ...defaults };
   let factory: Factory | undefined;
   let editor: BlockEditor | undefined;
@@ -54,7 +56,7 @@ export default function blockEditor(pi: ExtensionAPI): void {
     return owned;
   }
 
-  pi.on("session_start", (_event, ctx) => {
+  pi.on("session_start", (event, ctx) => {
     if (ctx.mode !== "tui") return;
     try { config = loadConfig(join(getAgentDir(), "block-editor.json")); }
     catch (error) {
@@ -66,13 +68,14 @@ export default function blockEditor(pi: ExtensionAPI): void {
       if (entry.type === "custom" && entry.customType === STATE && typeof entry.data === "boolean") enabled = entry.data;
     }
     if (!supported(ctx)) {
-      ctx.ui.notify("pi-block-editor：此 Pi 缺少所需编辑器 API；已保持原生输入框。已验证版本：0.85.1。", "warning");
+      ctx.ui.notify("pi-block-editor：此 Pi 缺少所需编辑器 API；已保持原生输入框。已验证版本：0.85.1、0.87.1、0.99.1、1.0.0。", "warning");
       return;
     }
     if (enabled) enable(ctx);
+    if (config.welcome) welcome.start(ctx, event.reason, config.paddingX);
   });
 
-  pi.on("session_shutdown", (_event, ctx) => { disable(ctx); });
+  pi.on("session_shutdown", (_event, ctx) => { welcome.shutdown(); disable(ctx); });
 
   pi.registerCommand("block-editor", {
     description: "Block 输入框：on / off / reset（恢复原生）",

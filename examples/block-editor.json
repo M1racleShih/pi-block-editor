@@ -1,5 +1,6 @@
 {
   "enabled": true,
+  "welcome": true,
   "paddingX": 1,
   "background": "theme"
 }
