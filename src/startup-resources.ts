@@ -8,7 +8,7 @@ import { truncateToWidth, visibleWidth, type Component } from "@earendil-works/p
 // Pi versions whose internal startup components (ExpandableText sections with
 // `[Name]\n` collapsed text, the builtInHeader onboarding line) have been
 // verified to match this bridge. Extend only after checking both structures.
-export const VERIFIED_PI_VERSIONS = new Set(["0.85.1", "0.87.1", "0.99.1"]);
+export const VERIFIED_PI_VERSIONS = new Set(["0.85.1", "0.87.1", "0.99.1", "1.0.0"]);
 interface StartupText extends Component {
   getCollapsedText?: () => string;
   getExpandedText?: () => string;

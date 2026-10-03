@@ -35,6 +35,14 @@ export function renderLogo(color = true): string[] {
   return lines;
 }
 
+// The native header drops its first line (logo top plus version); its second
+// line pairs the 4-column half-block logo with the first hint line. Keep only
+// the hints so reused help stays centered. Terminals the logo does not support
+// (text wordmark fallback) already start that line directly with the hints.
+export function stripNativeLogo(line: string): string {
+  return stripVTControlCharacters(line).startsWith("█▀ █") ? sliceByColumn(line, 5, visibleWidth(line)) : line;
+}
+
 // Center one line of the given visible width inside the symmetric padding
 // margins; content wider than the margins hugs the left gutter instead.
 function centerIndent(width: number, padding: number, textWidth: number): string {
@@ -122,7 +130,7 @@ export function createWelcome(pi: ExtensionAPI) {
             const theme = ctx.ui.theme;
             const helpText = native
               ? startupText(native, expanded).split("\n").slice(1).map((line, index) =>
-                  VERSION === "0.99.1" && index === 0 ? sliceByColumn(line, 5, visibleWidth(line)) : line).join("\n")
+                  index === 0 ? stripNativeLogo(line) : line).join("\n")
               : `${keyText("app.interrupt")} interrupt · ${keyText("app.clear")}/${keyText("app.exit")} clear/exit · / commands · ! bash · ${keyText("app.tools.expand")} more\nPress ${keyText("app.tools.expand")} to show full startup help and loaded resources.\n\nPi can explain its own features and look up its docs. Ask it how to use or extend Pi.`;
             help.setText(theme.fg("dim", centerLines(helpText, width, padding)));
             // The 8-row block logo plus info and help needs ~24 rows to clear

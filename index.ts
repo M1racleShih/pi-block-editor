@@ -68,7 +68,7 @@ export default function blockEditor(pi: ExtensionAPI): void {
       if (entry.type === "custom" && entry.customType === STATE && typeof entry.data === "boolean") enabled = entry.data;
     }
     if (!supported(ctx)) {
-      ctx.ui.notify("pi-block-editor：此 Pi 缺少所需编辑器 API；已保持原生输入框。已验证版本：0.85.1、0.87.1。", "warning");
+      ctx.ui.notify("pi-block-editor：此 Pi 缺少所需编辑器 API；已保持原生输入框。已验证版本：0.85.1、0.87.1、0.99.1、1.0.0。", "warning");
       return;
     }
     if (enabled) enable(ctx);

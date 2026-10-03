@@ -2,9 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { stripVTControlCharacters as plain } from "node:util";
 import { Container, Text, visibleWidth } from "@earendil-works/pi-tui";
-import { VERSION, type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
-import { centerLines, createWelcome, estimateInitialTokens, renderLogo, renderWelcome } from "../src/welcome.ts";
-import { createResourceAdapter, extensionLabels, renderExtensions, renderSkills, startupText, startupTexts } from "../src/startup-resources.ts";
+import { type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
+import { centerLines, createWelcome, estimateInitialTokens, renderLogo, renderWelcome, stripNativeLogo } from "../src/welcome.ts";
+import { createResourceAdapter, extensionLabels, renderExtensions, renderSkills, startupText, startupTexts, VERIFIED_PI_VERSIONS } from "../src/startup-resources.ts";
 
 const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text } as Theme;
 class StartupText extends Text {
@@ -109,14 +109,17 @@ test("resource adapter preserves expanded paths, diagnostics and restores owners
   section.render = replacement; again.dispose(); assert.equal(section.render, replacement);
 });
 
-function harness(mode = "tui", entries: unknown[] = []) {
+function harness(mode = "tui", entries: unknown[] = [], logo: "block" | "wordmark" = "block") {
   const handlers = new Map<string, Function>();
   let header: any;
   let writes = 0;
   const root = new Container();
+  // Mirrors the native built-in header: two-line half-block logo plus version
+  // on the first line, or the text wordmark fallback where hints start line two.
+  const first = logo === "block" ? "▀▀█  v0\n█▀ █ " : "Pi v0\n";
   const native = new StartupText(
-    () => VERSION === "0.99.1" ? "▀▀█  v0\n█▀ █ CUSTOM interrupt · / commands\nPress CUSTOM for more\n\nPi can explain its own features" : "pi v0\nCUSTOM interrupt · / commands\nPress CUSTOM for more\n\nPi can explain its own features",
-    () => VERSION === "0.99.1" ? "▀▀█  v0\n█▀ █ ALL HELP\nPi can explain its own features" : "pi v0\nALL HELP\nPi can explain its own features",
+    () => `${first}CUSTOM interrupt · / commands\nPress CUSTOM for more\n\nPi can explain its own features`,
+    () => `${first}ALL HELP\nPi can explain its own features`,
   );
   root.addChild(native);
   const tui = Object.assign(root, { terminal: { rows: 40 }, requestRender() {} });
@@ -134,14 +137,24 @@ function harness(mode = "tui", entries: unknown[] = []) {
 }
 
 test("welcome retains native help, expands, excludes inactive tools, hides on submit", () => {
-  const h = harness(); h.welcome.start(h.ctx, "startup", 1);
-  const text = plain(h.header.render(120).join("\n"));
-  assert.ok(text.includes("Initial prompt")); assert.ok(text.includes("CUSTOM interrupt"));
-  assert.ok(text.split("\n").find((line) => line.includes("CUSTOM interrupt"))!.startsWith(" ".repeat(30)));
-  assert.ok(!text.includes("5.0k")); assert.ok(!text.includes("pi v0"));
-  h.header.setExpanded(true); assert.ok(h.header.render(120).join("\n").includes("ALL HELP"));
-  h.event("input"); assert.deepEqual(h.header.render(120), []);
-  h.welcome.shutdown();
+  for (const logo of ["block", "wordmark"] as const) {
+    const h = harness("tui", [], logo); h.welcome.start(h.ctx, "startup", 1);
+    const text = plain(h.header.render(120).join("\n"));
+    assert.ok(text.includes("Initial prompt")); assert.ok(text.includes("CUSTOM interrupt"));
+    assert.ok(text.split("\n").find((line) => line.includes("CUSTOM interrupt"))!.startsWith(" ".repeat(30)));
+    assert.ok(!text.includes("5.0k")); assert.ok(!text.includes("v0"));
+    assert.ok(!text.includes("▀▀█") && !text.includes("█▀ █"));
+    h.header.setExpanded(true); assert.ok(h.header.render(120).join("\n").includes("ALL HELP"));
+    h.event("input"); assert.deepEqual(h.header.render(120), []);
+    h.welcome.shutdown();
+  }
+});
+
+test("native help drops the two-line logo but keeps unadorned hint lines", () => {
+  assert.equal(plain(stripNativeLogo("\x1b[34m█▀\x1b[0m \x1b[33m█\x1b[0m escape interrupt · more")), "escape interrupt · more");
+  assert.equal(stripNativeLogo("escape interrupt · more"), "escape interrupt · more");
+  // The wordmark fallback puts hints at the line start; nothing must be cut.
+  assert.equal(stripNativeLogo("Pi escape interrupt"), "Pi escape interrupt");
 });
 
 for (const event of ["before_agent_start", "user_bash"]) test(`${event} dismisses welcome`, () => {
@@ -173,27 +186,44 @@ class ThemedStartupText extends Text {
   override render(width: number) { this.setText(this.build()); return super.render(width); }
 }
 
-test("0.99.1 themed startup sections preserve state, expanded paths and ownership", () => {
-  const root = new Container();
-  const section = new ThemedStartupText("[Extensions]\n  pi-hud, pi-block-editor", "[Extensions]\n  /full/path/index.ts");
-  root.addChild(section);
-  const original = section.render;
-  assert.equal(startupTexts(root).length, 1);
-  assert.ok(startupText(section, true).includes("/full/path"));
-  assert.equal(section.state.expanded, false);
-  const adapter = createResourceAdapter(root, () => theme, "0.99.1");
-  adapter.refresh();
-  assert.ok(section.render(80).join("\n").includes("Extensions · 2"));
-  section.setExpanded(true);
-  assert.ok(section.render(80).join("\n").includes("/full/path"));
-  assert.equal(section.state.expanded, true);
-  assert.ok(startupText(section, false).includes("pi-hud"));
-  assert.equal(section.state.expanded, true);
-  adapter.dispose();
-  assert.equal(section.render, original);
-  section.build = () => { throw new Error("builder failure"); };
-  assert.throws(() => startupText(section, false), /builder failure/);
-  assert.equal(section.state.expanded, true);
+test("themed startup sections (0.99.1, 1.0.0) preserve state, expanded paths and ownership", () => {
+  for (const version of ["0.99.1", "1.0.0"]) {
+    const root = new Container();
+    const section = new ThemedStartupText("[Extensions]\n  pi-hud, pi-block-editor", "[Extensions]\n  /full/path/index.ts");
+    root.addChild(section);
+    const original = section.render;
+    assert.equal(startupTexts(root).length, 1);
+    assert.ok(startupText(section, true).includes("/full/path"));
+    assert.equal(section.state.expanded, false);
+    const adapter = createResourceAdapter(root, () => theme, version);
+    adapter.refresh();
+    assert.ok(section.render(80).join("\n").includes("Extensions · 2"));
+    section.setExpanded(true);
+    assert.ok(section.render(80).join("\n").includes("/full/path"));
+    assert.equal(section.state.expanded, true);
+    assert.ok(startupText(section, false).includes("pi-hud"));
+    assert.equal(section.state.expanded, true);
+    adapter.dispose();
+    assert.equal(section.render, original);
+    section.build = () => { throw new Error("builder failure"); };
+    assert.throws(() => startupText(section, false), /builder failure/);
+    assert.equal(section.state.expanded, true);
+  }
+});
+
+test("every verified Pi version activates the resource bridge", () => {
+  assert.deepEqual([...VERIFIED_PI_VERSIONS].sort(), ["0.85.1", "0.87.1", "0.99.1", "1.0.0"]);
+  for (const version of VERIFIED_PI_VERSIONS) {
+    const root = new Container();
+    const section = new ThemedStartupText("[Extensions]\n  pi-hud, pi-block-editor", "[Extensions]\n  /full/path/index.ts");
+    root.addChild(section);
+    const original = section.render;
+    const adapter = createResourceAdapter(root, () => theme, version);
+    adapter.refresh();
+    assert.ok(section.render(80).join("\n").includes("Extensions · 2"), version);
+    adapter.dispose();
+    assert.equal(section.render, original);
+  }
 });
 
 test("resource heading centers independently and grid columns center as one block", () => {
