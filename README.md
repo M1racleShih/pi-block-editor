@@ -2,7 +2,7 @@
 
 A lightweight Pi extension that turns the stock two-line editor into a borderless block with its own background color. Extends the native `CustomEditor`, keeps all native editing behavior, and installs only in TUI mode. [中文说明在此。](#安装)
 
-独立、轻量的 Pi 输入框插件：将原生上下横线变成有背景色的无边框 block。无动画、无轮询、无额外状态栏，不修改 Pi，不依赖 pi-hud。
+独立、轻量的 Pi 输入框插件：将原生上下横线变成有背景色的无边框 block，并为新会话提供简洁居中的三色色块 π 欢迎区。无动画、无轮询、无额外状态栏，不修改 Pi 安装文件，不依赖 pi-hud。
 
 ## 安装
 
@@ -29,6 +29,17 @@ pi -e /path/to/pi-block-editor/index.ts
 
 默认自动启用。启停选择作为本插件的 custom entry 保存在当前会话分支中，reload / resume 后恢复；新会话采用配置默认值，fork 继承所处分支的选择。命令不触发模型调用。
 
+### 新会话首页
+
+- 珊瑚红 `#F09082` / 蓝 `#4D9ABF` / 金黄 `#F1BE58` 三色平涂色块 π（16×8）；Logo、「Initial prompt」信息行与帮助文字整体居中（长行先换行再逐行居中）；窄于 40 列或低于 24 行的终端使用单行 `π`。设置 `NO_COLOR` 可关闭 Logo 配色。
+- `Initial prompt ≈ … tokens`：系统提示（含已注入的项目说明和技能描述）加当前启用工具的名称、描述和参数 schema 的本地估算。ASCII 按约 4 字符/token，非 ASCII 按约 1 字符/token；**不是模型 tokenizer 或账单用量**。不计用户输入、未加载的技能全文、未展开的模板，以及提交时其他扩展才注入的内容或 provider 包装。
+- 原生快捷键、完整帮助展开和 Pi 自说明保留；不重复 footer 的模型/项目。
+- Extensions / Skills 折叠列表标题居中、网格整体居中，使用最多三列、缩短包名，重名保留来源；技能名本身简短（Pi 校验为小写 a-z、0-9、连字符），不缩短。完整路径仍在原生 Ctrl+O 展开详情中。其他资源与错误/警告不改动。
+- 只在空白新会话显示；恢复/派生会话不插入欢迎区。输入时保留，提交 prompt 或执行 bash 后收起品牌与帮助区；原生资源列表仍可展开。不抢焦点、不联网、不写入模型上下文。
+- `welcome: false` 可关闭此功能，独立于 `/block-editor on|off` 的编辑器开关。
+
+**兼容边界：** Pi 暂无公开的资源列表定制接口。原生帮助复用和 Extensions / Skills 排版使用独立、可撤销、仅针对已验证版本（**0.85.1、0.87.1、0.99.1**）的组件结构适配层；不读取配置猜测已加载扩展，不修改扩展内容。在其他版本保留原生资源列表，欢迎区使用简短帮助。Header 与编辑器一样是单槽位；与其他自定义 header 插件同时启用时，由加载顺序决定显示，请仅启用一个欢迎页。适配层不会修改其他资源或诊断。
+
 ### 配置
 
 复制 `examples/block-editor.json` 到 `~/.pi/agent/block-editor.json`；设置了 `PI_CODING_AGENT_DIR` 时改用该目录。只读取用户级配置，不读取项目内配置，不写配置文件。
@@ -36,12 +47,14 @@ pi -e /path/to/pi-block-editor/index.ts
 ```json
 {
   "enabled": true,
+  "welcome": true,
   "paddingX": 1,
   "background": "theme"
 }
 ```
 
 - `enabled`：新会话是否自动启用。已有会话的命令选择优先。
+- `welcome`：是否启用新会话首页，默认 `true`。
 - `paddingX`：左右各 1–8 列；极窄终端由原生布局压缩。插件启用时优先于 Pi 的 `editorPaddingX`。
 - `background`：`"theme"`、`"#RRGGBB"` 或 0–255 色号。
 - 修改后 `/reload` 生效。未知字段和非法值会报错，不静默安装。
@@ -87,14 +100,16 @@ npm run package:check
 python3 scripts/tui-smoke.py
 python3 scripts/tui-smoke.py --fullscreen
 python3 scripts/tui-smoke.py --hud ../pi-hud/index.ts
+python3 scripts/welcome-smoke.py
+python3 scripts/welcome-smoke.py --fullscreen
 ```
 
 TUI 脚本只操作自己创建的独立 tmux server，使用临时配置并自动清理；ANSI 捕获保存在 `artifacts/`，不打包。测试 fixture 不进入发布包。
 
 详见 [实现核对与验证记录](docs/verification.md)。**终端捕获及光标单元测试不代表桌面中文 IME 候选窗或真实剪贴板图片已通过。**
 
-已核对并验证 **Pi 0.85.1**（`@earendil-works` 包，导入由 Pi 运行时解析，已用独立目录实测）。其他版本尚未验证；需要 `getEditorComponent` 和原生编辑器的两个 protected 边框钩子。不支持旧 `@mariozechner` 发行版。加载时如缺少所需 API 会提示并保持原生输入框。
+已核对并验证 **Pi 0.85.1 与 0.87.1**（`@earendil-works` 包，导入由 Pi 运行时解析，已用独立目录实测）。其余版本尚未验证；需要 `getEditorComponent` 和原生编辑器的两个 protected 边框钩子（0.85.1–0.87.1 间签名未变）。不支持旧 `@mariozechner` 发行版。加载时如缺少所需 API 会提示并保持原生输入框。
 
 ## 许可
 
-MIT，见 [LICENSE](LICENSE)。Pi 为 peer dependency，不打包其源码。未引入 Codex CLI 素材；若以后引入外部素材，应单独核对许可与署名要求。
+MIT，见 [LICENSE](LICENSE)。Pi 为 peer dependency，不打包其源码。Logo 配色与字形转录自需求方提供的参考图。未引入 Codex CLI 素材；若以后引入外部素材，应单独核对许可与署名要求。
