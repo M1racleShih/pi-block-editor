@@ -1,7 +1,7 @@
 import { stripVTControlCharacters } from "node:util";
-import { keyText, VERSION, type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
+import { keyText, type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import { Text, sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component } from "@earendil-works/pi-tui";
-import { createResourceAdapter, startupText, startupTexts, VERIFIED_PI_VERSIONS } from "./startup-resources.ts";
+import { createResourceAdapter, startupText, startupTexts } from "./startup-resources.ts";
 
 // Flat-color block π transcribed from the reference logo: a 4×4 cell glyph —
 // coral top bar with its right curl, blue left leg with its foot bump, gold
@@ -104,10 +104,11 @@ export function createWelcome(pi: ExtensionAPI) {
 
       ctx.ui.setHeader((tui) => {
         // Preserve the actual native help and keybindings rather than copying a
-        // static shortcut list. Unsupported Pi layouts use a minimal fallback.
-        const native = VERIFIED_PI_VERSIONS.has(VERSION) ? startupTexts(tui).find((node) =>
-          stripVTControlCharacters(startupText(node, false)).includes("Pi can explain its own features")) : undefined;
-        const resources = createResourceAdapter(tui, () => ctx.ui.theme, VERSION, () => ctx.ui.getToolsExpanded());
+        // static shortcut list. The built-in header is found by its content, not
+        // by version number; layouts without it use a minimal fallback.
+        const native = startupTexts(tui).find((node) =>
+          stripVTControlCharacters(startupText(node, false)).includes("Pi can explain its own features"));
+        const resources = createResourceAdapter(tui, () => ctx.ui.theme, () => ctx.ui.getToolsExpanded());
         let visible = true;
         let expanded = ctx.ui.getToolsExpanded();
         let disposed = false;

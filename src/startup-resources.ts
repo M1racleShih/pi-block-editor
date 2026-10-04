@@ -5,10 +5,11 @@ import { truncateToWidth, visibleWidth, type Component } from "@earendil-works/p
 // Pi has no public resource-list customization API. Keep the bridge isolated,
 // shape-checked and reversible; never reconstruct an inventory from
 // tools/commands (that would omit UI-only extensions).
-// Pi versions whose internal startup components (ExpandableText sections with
-// `[Name]\n` collapsed text, the builtInHeader onboarding line) have been
-// verified to match this bridge. Extend only after checking both structures.
-export const VERIFIED_PI_VERSIONS = new Set(["0.85.1", "0.87.1", "0.99.1", "1.0.0"]);
+// The bridge activates purely on runtime shape checks (ExpandableText sections
+// whose collapsed text starts with `[Name]\n`), never on version numbers: a Pi
+// release that changes these internals simply stops matching and keeps the
+// native listing. Internals manually checked against Pi 0.85.1, 0.87.1,
+// 0.99.1 and 1.0.0-1.0.2.
 interface StartupText extends Component {
   getCollapsedText?: () => string;
   getExpandedText?: () => string;
@@ -94,11 +95,11 @@ const GRID_SECTIONS = [
   { prefix: "[Skills]\n", title: "Skills", display: (names: string[]) => names },
 ] as const;
 
-export function createResourceAdapter(root: unknown, getTheme: () => Theme, version: string, isExpanded = () => false) {
+export function createResourceAdapter(root: unknown, getTheme: () => Theme, isExpanded = () => false) {
   const restores: (() => void)[] = [];
   return {
     refresh() {
-      if (!VERIFIED_PI_VERSIONS.has(version) || restores.length) return;
+      if (restores.length) return;
       const texts = startupTexts(root);
       for (const { prefix, title, display } of GRID_SECTIONS) {
         const section = texts.find((node) =>
