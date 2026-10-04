@@ -2,7 +2,7 @@
 
 ## 核对基线
 
-本机 `pi --version`：**1.0.0**（经 0.85.1 → 0.87.1 → 0.99.1 → 1.0.0 升级适配），Node **24.18.0**，Linux + tmux。开发依赖锁定相同 Pi/TUI 版本（1.0.0）。没有修改 Pi 或相邻 pi-hud。
+本机 `pi --version`：**1.0.2**（经 0.85.1 → 0.87.1 → 0.99.1 → 1.0.0 → 1.0.2 升级适配），Node **24.18.0**，Linux + tmux。开发依赖锁定相同 Pi/TUI 版本（1.0.2）。没有修改 Pi 或相邻 pi-hud。
 
 实施前完整阅读本机 Pi 的：
 
@@ -62,14 +62,14 @@ python3 scripts/tui-smoke.py --hud ../pi-hud/index.ts PASS
 
 ## 新会话首页验证
 
-新增 `src/welcome.ts`（渐变字标、初始估算、生命周期）和 `src/startup-resources.ts`（原生资源展示适配层，限已验证 Pi 版本 0.85.1 / 0.87.1 / 0.99.1 / 1.0.0），通过 `setHeader` 接入，不修改 Pi 安装文件。
+新增 `src/welcome.ts`（渐变字标、初始估算、生命周期）和 `src/startup-resources.ts`（原生资源展示适配层，按组件形状自检激活，核对过 0.85.1 / 0.87.1 / 0.99.1 / 1.0.0–1.0.2），通过 `setHeader` 接入，不修改 Pi 安装文件。
 
 - `tests/welcome.test.ts` 覆盖估算口径、渐变/纯文本、窄屏裁剪、扩展简称冲突、技能名不缩短、完整路径展开、诊断保留、适配层恢复、原生帮助复用、提交收起、resume/fork/已有消息不显示、非 TUI 不操作。
 - `python3 scripts/welcome-smoke.py` 和 `python3 scripts/welcome-smoke.py --fullscreen` 均通过。真实终端检查首页 token/Logo、输入时保留、Ctrl+O 完整帮助/路径及折叠网格（含临时 agent 目录注入的两个真实技能 fixture）、36 列窄屏、`! true` 后收起、`/new` 恢复。窄屏检查高度 36 行：新增 Skills 区块多占 4 行，30 行视口会把欢迎字标顶出屏幕，属原生滚动行为。
 - 编辑器原有 regular/fullscreen 冒烟脚本再次通过。
 - 首页 ANSI 捕获在 `artifacts/welcome-{regular,fullscreen}/`；不是桌面截图，不包含用户配置或模型调用。
 - Token 为启发式本地估算，不是精确 tokenizer 计数；未对照真实 provider 的请求用量。
-- Extensions / Skills 的精简显示依赖已验证版本（0.85.1 / 0.87.1 / 0.99.1 / 1.0.0，`src/startup-resources.ts` 的 `VERIFIED_PI_VERSIONS`）内部可展开组件结构，并非公开资源 API；形状/版本不符时保留原生列表。原生帮助复用同样限定这些版本。0.86–0.87 的升级核对见下方「0.87.1 升级核对」。折叠列表解析依赖 Pi 对技能名（小写 a-z、0-9、连字符）的校验，名称内不会出现 `, ` 分隔符。
+- Extensions / Skills 的精简显示依赖内部可展开组件结构（运行时形状自检激活，已核对 0.85.1 / 0.87.1 / 0.99.1 / 1.0.0–1.0.2），并非公开资源 API；形状不符时保留原生列表。原生帮助复用同样按内容探测激活。0.86–0.87 的升级核对见下方「0.87.1 升级核对」。折叠列表解析依赖 Pi 对技能名（小写 a-z、0-9、连字符）的校验，名称内不会出现 `, ` 分隔符。
 
 ## 0.87.1 升级核对
 
@@ -115,3 +115,13 @@ python3 scripts/tui-smoke.py --hud ../pi-hud/index.ts PASS
 - `scripts/tui-smoke.py` 的方块背景断言不再硬编码旧调色板（Pi 1.0.0 dark 主题 `userMessageBg` 由 #343541 改为蓝调 #213B49），改为首屏记录实际背景色并断言切换主题后随之改变。
 - 真实 Pi 1.0.0 的四组 tmux smoke 全部通过：welcome regular/fullscreen（居中网格、Ctrl+O 展开还原、窄屏、提交收起、/new）与编辑器 regular/fullscreen（CJK 光标、补全、滚动、缩放、off/on、reload、明暗主题、工厂归属）。隔离配置、无凭据、无模型请求。证据位于 artifacts/。
 - 仍适用的边界：1.0.0 未验证桌面中文 IME 候选窗、真实鼠标与剪贴板图片；`quietStartup: true` 时本插件欢迎页仍显示，与此前行为一致。
+
+## Pi 1.0.2 升级核对（含适配层激活策略调整）
+
+症状：升级到 1.0.2 后 Extensions / Skills 又回落原生左对齐——硬版本门未含 1.0.2。距 1.0.0 同类问题仅隔一个补丁版本，确认为版本号门的复发性缺陷；经确认后将激活策略从「版本号门」改为「组件形状自检」。
+
+- 结构核对：1.0.0 → 1.0.2 的 `interactive-mode.js` 变更仅图片转码（`ensurePngTranscoder`）、Logo 彩蛋 3D 化（`playPiLogo3d`）与 `DaxnutsComponent` 移除；`showLoadedResources`、`ExpandableText`、`themed-text`、`pi-logo`、`builtInHeader` 逐字对比无变化。
+- 策略调整：`createResourceAdapter` 移除版本参数与 `VERIFIED_PI_VERSIONS` 硬门，激活条件即运行时形状检查（`render`/`invalidate`/`setExpanded` + 文本 getters 或 `build`+`state.expanded`，且折叠文本以 `[Extensions]\n`/`[Skills]\n` 开头）；原生帮助复用改为内容探测（含「Pi can explain its own features」的组件），Logo 裁剪沿用字形探测。形状不符全部回落原生，不改其他资源与诊断。
+- 测试更新：去掉版本矩阵断言，新增「形状匹配即激活」「非匹配形状与其他分节保持原生」用例，32 项通过（开发依赖 1.0.2）。
+- 冒烟隔离修复：Pi 1.0.1+ 会发现 `~/.agents/skills` 与项目 `.agents/skills`，`welcome-smoke.py` 的临时配置曾漏入用户技能（Skills 变 3 个）；改为 `--no-skills` + 显式 `--skill` fixture 路径，彻底封闭发现面。
+- 真实 Pi 1.0.2 四组 tmux smoke 全部通过（welcome/tui × regular/fullscreen）；真实配置加载检查：16 个扩展全部加载、无报错。

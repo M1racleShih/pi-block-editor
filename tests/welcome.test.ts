@@ -4,7 +4,7 @@ import { stripVTControlCharacters as plain } from "node:util";
 import { Container, Text, visibleWidth } from "@earendil-works/pi-tui";
 import { type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import { centerLines, createWelcome, estimateInitialTokens, renderLogo, renderWelcome, stripNativeLogo } from "../src/welcome.ts";
-import { createResourceAdapter, extensionLabels, renderExtensions, renderSkills, startupText, startupTexts, VERIFIED_PI_VERSIONS } from "../src/startup-resources.ts";
+import { createResourceAdapter, extensionLabels, renderExtensions, renderSkills, startupText, startupTexts } from "../src/startup-resources.ts";
 
 const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text } as Theme;
 class StartupText extends Text {
@@ -86,7 +86,7 @@ test("resource adapter preserves expanded paths, diagnostics and restores owners
   root.addChild(skills); root.addChild(section); root.addChild(warning);
   const original = section.render;
   const originalSkills = skills.render;
-  const adapter = createResourceAdapter(root, () => theme, "0.85.1");
+  const adapter = createResourceAdapter(root, () => theme);
   adapter.refresh();
   assert.ok(section.render(80).join("\n").includes("Extensions · 2"));
   assert.ok(skills.render(80).join("\n").includes("Skills · 2"));
@@ -99,12 +99,7 @@ test("resource adapter preserves expanded paths, diagnostics and restores owners
   assert.ok(warning.render(80).join("\n").includes("error"));
   adapter.dispose();
   assert.equal(section.render, original); assert.equal(skills.render, originalSkills);
-  createResourceAdapter(root, () => theme, "future").refresh(); assert.equal(section.render, original);
-  // 0.87.1 shares the verified ExpandableText section shape and must stay active.
-  const verified = createResourceAdapter(root, () => theme, "0.87.1"); verified.refresh();
-  assert.notEqual(section.render, original);
-  verified.dispose(); assert.equal(section.render, original);
-  const again = createResourceAdapter(root, () => theme, "0.85.1"); again.refresh();
+  const again = createResourceAdapter(root, () => theme); again.refresh();
   const replacement = () => ["other extension"];
   section.render = replacement; again.dispose(); assert.equal(section.render, replacement);
 });
@@ -186,44 +181,42 @@ class ThemedStartupText extends Text {
   override render(width: number) { this.setText(this.build()); return super.render(width); }
 }
 
-test("themed startup sections (0.99.1, 1.0.0) preserve state, expanded paths and ownership", () => {
-  for (const version of ["0.99.1", "1.0.0"]) {
-    const root = new Container();
-    const section = new ThemedStartupText("[Extensions]\n  pi-hud, pi-block-editor", "[Extensions]\n  /full/path/index.ts");
-    root.addChild(section);
-    const original = section.render;
-    assert.equal(startupTexts(root).length, 1);
-    assert.ok(startupText(section, true).includes("/full/path"));
-    assert.equal(section.state.expanded, false);
-    const adapter = createResourceAdapter(root, () => theme, version);
-    adapter.refresh();
-    assert.ok(section.render(80).join("\n").includes("Extensions · 2"));
-    section.setExpanded(true);
-    assert.ok(section.render(80).join("\n").includes("/full/path"));
-    assert.equal(section.state.expanded, true);
-    assert.ok(startupText(section, false).includes("pi-hud"));
-    assert.equal(section.state.expanded, true);
-    adapter.dispose();
-    assert.equal(section.render, original);
-    section.build = () => { throw new Error("builder failure"); };
-    assert.throws(() => startupText(section, false), /builder failure/);
-    assert.equal(section.state.expanded, true);
-  }
+test("themed startup sections preserve state, expanded paths and ownership", () => {
+  const root = new Container();
+  const section = new ThemedStartupText("[Extensions]\n  pi-hud, pi-block-editor", "[Extensions]\n  /full/path/index.ts");
+  root.addChild(section);
+  const original = section.render;
+  assert.equal(startupTexts(root).length, 1);
+  assert.ok(startupText(section, true).includes("/full/path"));
+  assert.equal(section.state.expanded, false);
+  const adapter = createResourceAdapter(root, () => theme);
+  adapter.refresh();
+  assert.ok(section.render(80).join("\n").includes("Extensions · 2"));
+  section.setExpanded(true);
+  assert.ok(section.render(80).join("\n").includes("/full/path"));
+  assert.equal(section.state.expanded, true);
+  assert.ok(startupText(section, false).includes("pi-hud"));
+  assert.equal(section.state.expanded, true);
+  adapter.dispose();
+  assert.equal(section.render, original);
+  section.build = () => { throw new Error("builder failure"); };
+  assert.throws(() => startupText(section, false), /builder failure/);
+  assert.equal(section.state.expanded, true);
 });
 
-test("every verified Pi version activates the resource bridge", () => {
-  assert.deepEqual([...VERIFIED_PI_VERSIONS].sort(), ["0.85.1", "0.87.1", "0.99.1", "1.0.0"]);
-  for (const version of VERIFIED_PI_VERSIONS) {
-    const root = new Container();
-    const section = new ThemedStartupText("[Extensions]\n  pi-hud, pi-block-editor", "[Extensions]\n  /full/path/index.ts");
-    root.addChild(section);
-    const original = section.render;
-    const adapter = createResourceAdapter(root, () => theme, version);
-    adapter.refresh();
-    assert.ok(section.render(80).join("\n").includes("Extensions · 2"), version);
-    adapter.dispose();
-    assert.equal(section.render, original);
-  }
+test("bridge activates by shape alone and stays native on mismatches", () => {
+  const root = new Container();
+  const section = new ThemedStartupText("[Extensions]\n  pi-hud, pi-block-editor", "[Extensions]\n  /full/path/index.ts");
+  const themes = new ThemedStartupText("[Themes]\n  dark, light", "[Themes]\n  /full/path/themes");
+  const plainText = new Text("[Skills]\n  plain, text", 0, 0);
+  root.addChild(section); root.addChild(themes); root.addChild(plainText);
+  const original = section.render; const themesRender = themes.render; const plainRender = plainText.render;
+  createResourceAdapter(root, () => theme).refresh();
+  assert.ok(section.render(80).join("\n").includes("Extensions · 2"));
+  // Other sections and nodes without the expansion shape stay exactly native.
+  assert.equal(themes.render, themesRender); assert.equal(plainText.render, plainRender);
+  assert.ok(themes.render(80).join("\n").includes("dark, light"));
+  assert.ok(plainText.render(80).join("\n").includes("plain, text"));
 });
 
 test("resource heading centers independently and grid columns center as one block", () => {

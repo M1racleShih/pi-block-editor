@@ -40,8 +40,13 @@ with tempfile.TemporaryDirectory(prefix='pi-welcome-qa-') as temp:
         (config / 'skills' / skill).mkdir(parents=True)
         (config / 'skills' / skill / 'SKILL.md').write_text(
             f"---\nname: {skill}\ndescription: QA fixture skill for smoke tests.\n---\n\nBody.\n")
+    # Explicit --skill paths with discovery disabled keep the smoke hermetic:
+    # Pi 1.0.1+ also discovers ~/.agents/skills and project .agents/skills.
     launch = ['env', 'PI_CODING_AGENT_DIR=' + temp, 'PI_OFFLINE=1', 'PI_TRUE_COLOR=1',
-              'pi', '--no-prompt-templates', '--no-context-files', '--no-approve']
+              'pi', '--no-skills',
+              '--skill', str(config / 'skills' / 'commit-style'),
+              '--skill', str(config / 'skills' / 'release-notes'),
+              '--no-prompt-templates', '--no-context-files', '--no-approve']
     if args.fullscreen:
         launch += ['--tui-mode', 'fullscreen']
     try:
