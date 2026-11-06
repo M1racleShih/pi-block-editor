@@ -3,12 +3,19 @@ import { CustomEditor, getAgentDir, type ExtensionAPI, type ExtensionContext, ty
 import { BlockEditor } from "./src/block-editor.ts";
 import { createWelcome } from "./src/welcome.ts";
 import { defaults, loadConfig, type Config } from "./src/config.ts";
+import type { ExtensionSummaryGroup } from "./src/extension-groups.ts";
+
+export type { ExtensionSummaryGroup } from "./src/extension-groups.ts";
+export interface BlockEditorOptions {
+  /** Presentation only; expanded paths, diagnostics and loaded extensions are untouched. */
+  extensionGroups?: readonly ExtensionSummaryGroup[];
+}
 
 const STATE = "pi-block-editor:enabled";
 type Factory = NonNullable<ReturnType<ExtensionUIContext["getEditorComponent"]>>;
 
-export default function blockEditor(pi: ExtensionAPI): void {
-  const welcome = createWelcome(pi);
+export default function blockEditor(pi: ExtensionAPI, options: BlockEditorOptions = {}): void {
+  const welcome = createWelcome(pi, options.extensionGroups);
   let config: Config = { ...defaults };
   let factory: Factory | undefined;
   let editor: BlockEditor | undefined;

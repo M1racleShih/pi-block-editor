@@ -7,10 +7,7 @@ A lightweight Pi extension that turns the stock two-line editor into a borderles
 ## 安装
 
 ```bash
-# npm（推荐）
-pi install npm:pi-block-editor
-
-# 或 GitHub
+# 当前通过 GitHub 分发；尚未发布 npm
 pi install git:github.com/M1racleShih/pi-block-editor
 
 # 或仅试用（不写入配置）
@@ -39,6 +36,37 @@ pi -e /path/to/pi-block-editor/index.ts
 - `welcome: false` 可关闭此功能，独立于 `/block-editor on|off` 的编辑器开关。
 
 **兼容边界：** Pi 暂无公开的资源列表定制接口。原生帮助复用和 Extensions / Skills 排版使用独立、可撤销的组件结构适配层，按运行时组件形状自检激活（形状不符即保留原生资源列表和简短帮助），不读取配置猜测已加载扩展，不修改扩展内容。已逐项核对内部结构的版本：**0.85.1、0.87.1、0.99.1、1.0.0–1.0.2**；新版本无需改代码，内部结构变化时自动回落原生显示。Header 与编辑器一样是单槽位；与其他自定义 header 插件同时启用时，由加载顺序决定显示，请仅启用一个欢迎页。适配层不会修改其他资源或诊断。
+
+### 聚合包的单项启动摘要
+
+聚合包可以通过可选的程序化参数声明自己的展示分组。只改变新会话首页的折叠摘要，
+不会合并工厂、隐藏模块加载错误或改写资源身份；Ctrl+O 展开仍保留原生模块路径。
+单独安装本插件、不传分组时，显示行为完全不变。
+
+```ts
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import blockEditor from "pi-block-editor/index.ts";
+
+export default function (pi: ExtensionAPI) {
+  blockEditor(pi, {
+    extensionGroups: [{
+      label: "my-suite",
+      root: resolve(dirname(fileURLToPath(import.meta.url)), ".."),
+      packageLabels: ["owner/my-suite", "my-suite"],
+    }],
+  });
+}
+```
+
+本地入口只在原生展开列表中存在、且能唯一对应到 `root` 内路径时分组；Git/npm 入口使用
+显式声明的包名前缀。过滤掉的模块不会凭声明补回，其他扩展和诊断不动。重名、根目录重叠
+或无法识别的格式保留原生条目，不为“只显示一项”误藏其他扩展。路径与分组名不写进模型上下文，
+不扫描目录或根据 settings 猜测已加载资源。当前实现以 Pi 1.5.0 的真实启动界面验证。
+
+此选项属于代码集成 API，不是 `block-editor.json` 的配置字段。关闭 welcome 或恢复非空会话时，
+仍遵守原有不安装欢迎页的规则，不承诺修改 Pi 的所有列表或 `/config` 资源开关。
 
 ### 配置
 

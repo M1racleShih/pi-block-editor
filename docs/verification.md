@@ -93,6 +93,23 @@ python3 scripts/tui-smoke.py --hud ../pi-hud/index.ts PASS
 - 恢复/重装无法无损迁移原生实例私有状态，详见 README。不是任意编辑器的组合器。
 - 自定义主题/固定颜色与用户终端底色的实际视觉对比度需人工调整。未声称还原任何 Codex CLI 界面。
 
+## 2026-11-06 聚合包启动摘要（0.1.1）
+
+- 新增可选 `BlockEditorOptions.extensionGroups`，聚合包用一个单模块适配入口传入名称、
+  包根目录和 Git/npm 精简标签前缀；Block Editor 本身不依赖或写死任何聚合包。
+- 本地资源根据原生展开清单中的路径和唯一后缀匹配分组，不读取 settings 猜测已加载
+  模块，也不扫描磁盘。重复标签、重叠根目录、未知详情格式保持原条目。只处理折叠摘要，
+  原生展开详情、Skills、其他扩展、警告/错误和恢复逻辑不变。
+- `npm run verify`：类型检查和 **40 项测试全部通过**，包含本地/Git/npm 来源、部分模块
+  停用、重复/冲突标签、home/Windows 路径、窄宽度、详情展开、诊断保留与适配层撤销。
+- Pi **1.5.0** 真实 regular / fullscreen 启动验证由聚合仓库的
+  `scripts/startup-smoke.py` 执行：六个入口折叠为 `Extensions · 1` 下的一项套件名；
+  Ctrl+O 仍列六个原生资源路径；折回、reload、36 列窄屏均通过。隔离 HOME 和 agent、
+  假模型、离线启动、关闭标题，没有发送模型 prompt。捕获保存在聚合仓库被忽略的
+  `.workbench/startup-smoke-{regular,fullscreen}/`。
+- 不更改 Pi 安装文件；不把六个模块合成一个运行入口；未扩大到 welcome 关闭、恢复
+  非空会话、`/config` 或 Pi 的其他原生列表。此前 IME、剪贴板等未验收限制继续适用。
+
 ## 人工验收建议
 
 在日常使用的真实终端中：开启中文输入法并移动候选窗；在补全打开、长行折行和滚动后输入；Ctrl+V 粘贴一张图片并发送；粘贴大段内容后启停；输入历史、undo、kill/yank；切换系统主题；与个人其他编辑器插件分别调整加载顺序。遇到原生同样存在的问题，应先关闭本插件对照。

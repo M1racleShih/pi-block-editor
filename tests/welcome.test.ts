@@ -104,6 +104,37 @@ test("resource adapter preserves expanded paths, diagnostics and restores owners
   section.render = replacement; again.dispose(); assert.equal(section.render, replacement);
 });
 
+test("grouped resource adapter collapses only summaries and preserves details, skills and diagnostics", () => {
+  const root = new Container();
+  let collapsed = "[Extensions]\n  clear.ts, pi-hud, other.ts";
+  const expanded = "[Extensions]\n  user\n    /suite/extensions/clear.ts\n    /suite/node_modules/pi-hud\n    /outside/other.ts";
+  const section = new StartupText(() => collapsed, () => expanded);
+  const skills = new StartupText(() => "[Skills]\n  clear, pi-hud", () => "[Skills]\n  details");
+  const warning = new Text("[Extension issues]\nfull diagnostic", 0, 0);
+  root.addChild(section); root.addChild(skills); root.addChild(warning);
+  const original = section.render;
+  const adapter = createResourceAdapter(root, () => theme, () => false, [{ label: "suite", root: "/suite" }]);
+  adapter.refresh();
+  for (const width of [20, 40, 80, 120]) {
+    const lines = section.render(width);
+    assert.ok(lines.every((line) => visibleWidth(line) <= width));
+    assert.ok(lines.join("\n").includes("Extensions · 2"));
+    assert.ok(lines.join("\n").includes("suite"));
+    assert.ok(!lines.join("\n").includes("pi-hud"));
+  }
+  assert.ok(skills.render(80).join("\n").includes("Skills · 2"));
+  section.setExpanded(true);
+  assert.ok(plain(section.render(120).join("\n")).includes("/suite/extensions/clear.ts"));
+  assert.ok(plain(section.render(120).join("\n")).includes("/suite/node_modules/pi-hud"));
+  section.setExpanded(false);
+  assert.ok(section.render(80).join("\n").includes("Extensions · 2"));
+  collapsed = "[Extensions]\n  pi-hud, other.ts";
+  assert.ok(!section.render(80).join("\n").includes("clear"));
+  assert.ok(warning.render(80).join("\n").includes("full diagnostic"));
+  adapter.dispose();
+  assert.equal(section.render, original);
+});
+
 function harness(mode = "tui", entries: unknown[] = [], logo: "block" | "wordmark" = "block") {
   const handlers = new Map<string, Function>();
   let header: any;

@@ -1,6 +1,7 @@
 import { stripVTControlCharacters } from "node:util";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
+import { groupExtensionLabels, type ExtensionSummaryGroup } from "./extension-groups.ts";
 
 // Pi has no public resource-list customization API. Keep the bridge isolated,
 // shape-checked and reversible; never reconstruct an inventory from
@@ -9,7 +10,7 @@ import { truncateToWidth, visibleWidth, type Component } from "@earendil-works/p
 // whose collapsed text starts with `[Name]\n`), never on version numbers: a Pi
 // release that changes these internals simply stops matching and keeps the
 // native listing. Internals manually checked against Pi 0.85.1, 0.87.1,
-// 0.99.1 and 1.0.0-1.0.2.
+// 0.99.1, 1.0.0-1.0.2 and 1.5.0.
 interface StartupText extends Component {
   getCollapsedText?: () => string;
   getExpandedText?: () => string;
@@ -95,7 +96,8 @@ const GRID_SECTIONS = [
   { prefix: "[Skills]\n", title: "Skills", display: (names: string[]) => names },
 ] as const;
 
-export function createResourceAdapter(root: unknown, getTheme: () => Theme, isExpanded = () => false) {
+export function createResourceAdapter(root: unknown, getTheme: () => Theme, isExpanded = () => false,
+  extensionGroups: readonly ExtensionSummaryGroup[] = []) {
   const restores: (() => void)[] = [];
   return {
     refresh() {
@@ -110,6 +112,9 @@ export function createResourceAdapter(root: unknown, getTheme: () => Theme, isEx
         let expanded = isExpanded();
         const wrappedExpand = (value: boolean) => { expanded = value; originalExpand.call(section, value); };
         section.setExpanded = wrappedExpand;
+        let cachedBody: string | undefined;
+        let cachedDetails: string | undefined;
+        let cachedNames: string[] = [];
         const wrapped: Component["render"] = function (width) {
           const collapsed = startupText(section, false);
           // Expanded details and all other sections/diagnostics stay native.
@@ -117,7 +122,16 @@ export function createResourceAdapter(root: unknown, getTheme: () => Theme, isEx
           const body = stripVTControlCharacters(collapsed).slice(prefix.length).trim();
           // Skill/extension labels never contain the ", " separator themselves.
           const labels = body.split(", ").filter(Boolean);
-          return labels.length ? renderResourceGrid(title, display(labels), width, getTheme()) : original.call(section, width);
+          if (!labels.length) return original.call(section, width);
+          const details = title === "Extensions" && extensionGroups.length
+            ? stripVTControlCharacters(startupText(section, true)) : "";
+          if (body !== cachedBody || details !== cachedDetails) {
+            const grouped = title === "Extensions" ? groupExtensionLabels(labels, details, extensionGroups) : labels;
+            cachedNames = display(grouped);
+            cachedBody = body;
+            cachedDetails = details;
+          }
+          return renderResourceGrid(title, cachedNames, width, getTheme());
         };
         section.render = wrapped;
         restores.push(() => {

@@ -2,6 +2,7 @@ import { stripVTControlCharacters } from "node:util";
 import { keyText, type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import { Text, sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component } from "@earendil-works/pi-tui";
 import { createResourceAdapter, startupText, startupTexts } from "./startup-resources.ts";
+import type { ExtensionSummaryGroup } from "./extension-groups.ts";
 
 // Flat-color block π transcribed from the reference logo: a 4×4 cell glyph —
 // coral top bar with its right curl, blue left leg with its foot bump, gold
@@ -85,7 +86,7 @@ export function renderWelcome(width: number, tokens: number | undefined, theme: 
   return lines.map((line) => truncateToWidth(line, width));
 }
 
-export function createWelcome(pi: ExtensionAPI) {
+export function createWelcome(pi: ExtensionAPI, extensionGroups: readonly ExtensionSummaryGroup[] = []) {
   let dismiss: (() => void) | undefined;
   let cleanup: (() => void) | undefined;
   // No keyboard interception: typing, completion and model selection retain focus.
@@ -108,7 +109,7 @@ export function createWelcome(pi: ExtensionAPI) {
         // by version number; layouts without it use a minimal fallback.
         const native = startupTexts(tui).find((node) =>
           stripVTControlCharacters(startupText(node, false)).includes("Pi can explain its own features"));
-        const resources = createResourceAdapter(tui, () => ctx.ui.theme, () => ctx.ui.getToolsExpanded());
+        const resources = createResourceAdapter(tui, () => ctx.ui.theme, () => ctx.ui.getToolsExpanded(), extensionGroups);
         let visible = true;
         let expanded = ctx.ui.getToolsExpanded();
         let disposed = false;
